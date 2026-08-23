@@ -10,4 +10,4 @@ The invariant is a one-way ratchet: a repository's provable correctness may
 never decrease without a named human accepting the loss.
 """
 
-__version__ = "0.0.0"
+__version__ = "0.1.0"
