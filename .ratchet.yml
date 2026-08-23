@@ -1,0 +1,28 @@
+# Ratchet's own policy, applied to Ratchet by the self-check CI job.
+#
+# Most PRs in this repository are agent-authored, which makes dogfooding here
+# more than a gesture: this file is the first real customer configuration.
+version: 1
+
+# Trust budget starts at 100 and is spent on evidence. Below this, the check
+# fails and the PR needs a human.
+fail_under: 70
+
+test_globs:
+  - "**/test_*.py"
+  - "**/tests/**/*.py"
+
+ignore_globs:
+  # Corpus fixtures are deliberately-weakened test files — they are the input
+  # to the detector, not code the detector should police.
+  - "fixtures/corpus/**"
+
+rules:
+  # Deleting a test or silencing one is never an accident worth staying quiet
+  # about, so these keep their full default weight.
+  VID001: { enabled: true }
+  VID003: { enabled: true }
+
+oracle:
+  # Opt-in: costs API calls and needs a linked issue.
+  enabled: false

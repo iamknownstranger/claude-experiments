@@ -1,0 +1,14 @@
+# Agents merge their own PRs here once CI is green, so the blast radius of a
+# bad change is bounded by this file rather than by review habits.
+#
+# These paths are the ones where a wrong change is invisible in a green build:
+# the contracts every work package is written against, the tests that decide
+# what "green" means, and the workflows that decide what runs at all. A test
+# suite that can be edited by the same actor it constrains is not a constraint.
+
+/src/ratchet/contracts/   @iamknownstranger
+/tests/                   @iamknownstranger
+/fixtures/corpus/         @iamknownstranger
+/.github/                 @iamknownstranger
+/pyproject.toml           @iamknownstranger
+/.ratchet.yml             @iamknownstranger

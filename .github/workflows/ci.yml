@@ -1,0 +1,137 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+      - claude/market-research-product-plan-uc5yg0
+
+# A superseded run tells you nothing useful, and agent fleets open PRs faster
+# than runners free up.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  UV_VERSION: "0.5.11"
+
+jobs:
+  lint:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --all-extras
+      - name: ruff check
+        run: uv run ruff check .
+      - name: ruff format
+        run: uv run ruff format --check .
+
+  types:
+    name: types
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --all-extras
+      - run: uv run mypy
+
+  test:
+    name: test (py${{ matrix.python-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --all-extras --python ${{ matrix.python-version }}
+      - name: pytest
+        # Oracle tests are deselected here: they cost API calls and need a
+        # secret, and forks must be able to go green without one.
+        run: uv run pytest -m "not oracle" --cov --cov-report=term-missing
+
+  corpus:
+    name: corpus precision gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --all-extras
+      - name: precision >= 95% on VID001-VID005
+        # The corpus is the product's credibility. A false positive costs far
+        # more than a miss, so this gate is hard once the corpus lands.
+        # Exit 5 means "no corpus tests collected yet" — tolerated until Wave 3.
+        run: |
+          set +e
+          uv run pytest -m corpus
+          status=$?
+          set -e
+          if [ "$status" -eq 5 ]; then
+            echo "::notice::No corpus tests yet — gate is inactive until fixtures/corpus lands."
+            exit 0
+          fi
+          exit "$status"
+
+  self-check:
+    name: self-check (dogfood)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: ${{ env.UV_VERSION }}
+          enable-cache: true
+      - run: uv sync --all-extras
+      - name: ratchet check on our own diff
+        # Most PRs in this repo are agent-authored, which makes this the most
+        # honest test the project has. Inactive until the CLI exists.
+        run: |
+          if ! uv run ratchet --help >/dev/null 2>&1; then
+            echo "::notice::CLI not built yet — self-check is inactive until Wave 3."
+            exit 0
+          fi
+          base="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$base" ] || [ "$base" = "0000000000000000000000000000000000000000" ]; then
+            echo "::notice::No base commit to diff against; skipping."
+            exit 0
+          fi
+          uv run ratchet check --base "$base" --head "${{ github.sha }}"
+
+  commits:
+    name: conventional commit title
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: validate PR title
+        # Release versioning is derived from commit subjects, and PRs here are
+        # squash-merged, so the PR title *is* the released commit message.
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._-]+\))?!?: .+'
+          if ! printf '%s' "$TITLE" | grep -Eq "$pattern"; then
+            echo "::error::PR title must be a Conventional Commit, e.g. 'feat(rules): add VID003'."
+            echo "Got: $TITLE"
+            exit 1
+          fi
