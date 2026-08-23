@@ -73,10 +73,17 @@ jobs:
   pypi:
     name: publish to PyPI
     needs: release
-    if: needs.release.outputs.released == 'true'
+    # Gated on an explicit opt-in, not just on the environment: GitHub creates a
+    # referenced environment on demand, so an environment gate alone does not
+    # hold the job back — it ran and failed `invalid-publisher` against a PyPI
+    # project that does not exist yet. A permanently red job trains everyone to
+    # ignore red, which is the exact habit this project exists to prevent.
+    #
+    # To turn publishing on: create the PyPI project with Trusted Publishing for
+    # this repo + workflow + the `pypi` environment, then set the repository
+    # variable PYPI_PUBLISH to "true".
+    if: needs.release.outputs.released == 'true' && vars.PYPI_PUBLISH == 'true'
     runs-on: ubuntu-latest
-    # Gated on an environment that does not exist until PyPI Trusted Publishing
-    # is configured, so this job stays skipped rather than red in the meantime.
     environment:
       name: pypi
       url: https://pypi.org/p/ratchet-ci
