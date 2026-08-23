@@ -48,10 +48,19 @@ class FileChange:
     """A single file's transition from base to head."""
 
     path: str
+    """Head-side path — or the base-side path when the file was deleted."""
+
     kind: ChangeKind
+
     base_path: str | None = None
+    """Pre-rename path. Set only for `ChangeKind.RENAMED`; `None` otherwise."""
+
     base_content: str | None = None
+    """Whole file as of base. `None` for added and binary files."""
+
     head_content: str | None = None
+    """Whole file as of head. `None` for deleted and binary files."""
+
     hunks: tuple[Hunk, ...] = field(default_factory=tuple)
     is_binary: bool = False
 
