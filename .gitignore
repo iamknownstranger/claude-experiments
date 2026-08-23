@@ -12,3 +12,6 @@ htmlcov/
 .mypy_cache/
 .ruff_cache/
 .env
+
+# Subagent git worktrees — working state, never repository content.
+.claude/worktrees/
