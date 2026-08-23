@@ -17,7 +17,10 @@ permissions:
   contents: read
 
 env:
-  UV_VERSION: "0.5.11"
+  # Must be >= the uv that wrote uv.lock. The lockfile is at revision 3, which
+  # older uv releases refuse to parse — pinning below the writer turns every
+  # job red at `uv sync` before a single check runs.
+  UV_VERSION: "0.8.17"
 
 jobs:
   lint:

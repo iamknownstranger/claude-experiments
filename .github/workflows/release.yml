@@ -34,7 +34,9 @@ jobs:
 
       - uses: astral-sh/setup-uv@v5
         with:
-          version: "0.5.11"
+          # Keep in step with .github/workflows/ci.yml — must be >= the uv that
+          # wrote uv.lock (currently revision 3).
+          version: "0.8.17"
           enable-cache: true
 
       - run: uv sync --all-extras
