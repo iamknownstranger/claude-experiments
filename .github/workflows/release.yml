@@ -48,19 +48,26 @@ jobs:
 
       - name: semantic release
         id: semver
-        # Derives the version from Conventional Commit subjects, bumps
-        # __version__, writes CHANGELOG.md, commits, and tags.
-        uses: python-semantic-release/python-semantic-release@v9
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          root_options: "-vv"
-
-      - name: publish GitHub release assets
-        if: steps.semver.outputs.released == 'true'
-        uses: python-semantic-release/publish-action@v9
-        with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ steps.semver.outputs.tag }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # Run from our own locked environment rather than the upstream action.
+        # That action's image floats its dependencies: GitPython dropped
+        # `Actor.name_email_regex` and every release started failing on an image
+        # change we neither made nor could pin. Releases are part of the build,
+        # so their toolchain belongs in uv.lock like everything else.
+        run: |
+          before=$(git rev-parse HEAD)
+          uv run semantic-release version --push --vcs-release
+          after=$(git rev-parse HEAD)
+          if [ "$before" = "$after" ]; then
+            echo "No releasable commits since the last tag."
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          else
+            version=$(uv run python -c "import ratchet; print(ratchet.__version__)")
+            echo "Released ${version}."
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "version=${version}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: upload distributions
         if: steps.semver.outputs.released == 'true'

@@ -57,6 +57,15 @@ dev = [
     "types-pyyaml>=6.0",
     "anthropic>=0.40",
     "httpx>=0.27",
+    # Release tooling lives in the lockfile, not in an unpinned action image.
+    # The upstream action floated GitPython and broke on a removed attribute
+    # mid-project; pinning it here makes releases reproducible.
+    "python-semantic-release>=9.15",
+    # GitPython dropped `Actor.name_email_regex` after 3.1.45 and
+    # python-semantic-release still calls it, so an unconstrained resolve fails
+    # every release with `type object 'Actor' has no attribute ...`. Pin until
+    # upstream catches up. Dev-only: ratchet itself shells out to git.
+    "gitpython<3.1.46",
 ]
 
 [tool.hatch.version]
@@ -128,7 +137,7 @@ exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:", "raise NotImplementedE
 version_variables = ["src/ratchet/__init__.py:__version__"]
 version_toml = []
 commit_parser = "conventional"
-build_command = "python -m pip install uv && uv build"
+build_command = "uv build"
 major_on_zero = false
 allow_zero_version = true
 tag_format = "v{version}"
